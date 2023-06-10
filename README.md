@@ -41,6 +41,14 @@ Replace "/path/to/your/keyfile.json" with the actual path to your JSON key file.
 
 Remember, the service account key file acts as a password for your application to authenticate itself to Google Cloud, so treat it with the same level of care as you would any sensitive data.
 
+# Note on the Punkt
+
+The Punkt Sentence Tokenizer is a unsupervised machine learning algorithm that is used for sentence boundary detection. It divides a text into a list of sentence tokens. The algorithm is designed to learn what constitutes a sentence break from a corpus of text that it's trained on.
+
+In this script, the Punkt Sentence Tokenizer is used in the split_text_into_chunks function to divide the input text into sentences. This is done so that each sentence can be processed individually when synthesizing the speech. This is especially useful when the text is too large to be processed all at once, as it allows the text to speech synthesis to be done in manageable chunks.
+
+It's important to note that Punkt is language-dependent, which means it needs to be trained on text in the target language to work properly. The NLTK library provides pre-trained Punkt models for a number of languages, which can be loaded using the nltk.download('punkt') command, as the script does.
+
 # Usage
 
 Now, to use the program, navigate to the directory containing text2speech.py and run:
@@ -77,6 +85,10 @@ The script will process this file, splitting the text into segments based on the
 So, in the provided example, two .mp3 files would be generated - one for each time tag and the corresponding text. The files will be named in a way that corresponds to the order of the segments and their respective time tags, like `audio_1_00:01:00.mp3` and `audio_2_00:02:30.mp3` .
 
 These audio files can then be found in the same directory as your `text2speech.py` script.
+
+# Note on voices
+
+[Here](https://cloud.google.com/text-to-speech/docs/voices?hl=es-419) you can hear all available voices, in any language
 
 
 # Disclaimer
