@@ -6,12 +6,16 @@ Script to interact with Google Cloud Text-to-Speech API. Conversion to SSML, exp
 * Ensure Python 3.7 or later is installed on your machine. You can check your Python version using the command python --version in your terminal.
 * Create a new virtual environment (optional, but recommended). You can do this with the following commands:
 
-  python -m venv env
-  source env/bin/activate  # On Windows use `env\Scripts\activate`
+  `python -m venv env`
+  `source env/bin/activate`
+  
+  On Windows use 
+  
+    `env\Scripts\activate`
 
 * Install the required packages:
 
-  pip install -r requirements.txt
+  `pip install -r requirements.txt`
 
 * Save your Google Cloud Text-to-Speech API credentials JSON file to your project directory.
 * Create a .env file in your project directory and set the GOOGLE_APPLICATION_CREDENTIALS variable to the path of your credentials JSON file:
@@ -20,7 +24,7 @@ Script to interact with Google Cloud Text-to-Speech API. Conversion to SSML, exp
 
 Now, to use the program, navigate to the directory containing text2speech.py and run:
 
-  python text2speech.py
+  `python text2speech.py`
 
 The program will guide you through a series of prompts to configure language, gender of the voice, and to select the text file to convert to speech.
 It will split the file by time marks in format '[00:00:00]', generating as many files as tags found, under corresponding directory.
