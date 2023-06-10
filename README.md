@@ -23,6 +23,23 @@ Script to interact with Google Cloud Text-to-Speech API. Conversion to SSML, exp
 
   GOOGLE_APPLICATION_CREDENTIALS="path_to_your_credentials.json"
 
+# Note: How to get the API keyfile
+
+* Go to the Google Cloud Console. Navigate to https://console.cloud.google.com/ in your web browser.
+* Create a new project or select an existing one. In the Google Cloud Console, you will see a dropdown in the top bar next to the "Google Cloud Platform" logo. Click on it, then either create a new project by clicking on "NEW PROJECT" at the top right or select an existing one from the list.
+* Enable the Text-to-Speech API for your project. Use the search bar at the top of the page to search for "Text-to-Speech API". On the API page, click on "ENABLE" to enable it for your project.
+* Create a service account. Navigate to "IAM & Admin" > "Service Accounts" in the left-side menu. Click on "CREATE SERVICE ACCOUNT" at the top of the page.
+* Set the service account details. Give your service account a name and description, then click "CREATE".
+* Set the service account permissions. On the "Grant this service account access to project" page, click on "SELECT A ROLE" and choose "Cloud Text-to-Speech User" under the "Cloud Text-to-Speech" category. Then click "CONTINUE".
+* Create a key for the service account. On the "Grant users access to this service account (optional)" page, click "CREATE KEY". Select "JSON" as the key type, then click "CREATE". This will automatically download a JSON key file for your service account.
+* Save the key file. Store the JSON key file in a secure place and do not share it. You will use this file to authenticate your application to the Text-to-Speech API.
+* Set the environment variable. Finally, you need to set an environment variable called GOOGLE_APPLICATION_CREDENTIALS to the path of your JSON key file. If you're using a Unix-like operating system, you can do this in the terminal:
+
+  `export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/keyfile.json"`
+
+Replace "/path/to/your/keyfile.json" with the actual path to your JSON key file. If you're using Windows, the command will be slightly different.
+
+Remember, the service account key file acts as a password for your application to authenticate itself to Google Cloud, so treat it with the same level of care as you would any sensitive data.
 
 # Usage
 
