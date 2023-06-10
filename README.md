@@ -7,6 +7,7 @@ Script to interact with Google Cloud Text-to-Speech API. Conversion to SSML, exp
 * Create a new virtual environment (optional, but recommended). You can do this with the following commands:
 
   `python -m venv env`
+  
   `source env/bin/activate`
   
   On Windows use 
