@@ -64,7 +64,14 @@ The `text2speech.py` script is an interactive program that synthesizes speech fr
 
 
 
-After setting these configurations, the program will ask you to provide the path to a text file. This text file should contain the text you wish to convert into speech, structured in a specific way. The file should have time tags, represented in the format '[HH:MM:SS]' (hours, minutes, seconds), followed by a segment of text that you want to be spoken.
+After setting these configurations, the program will ask you to provide the path to a text file. This text file should contain the text you wish to convert into speech, structured in a specific way. The file should have time tags, represented in the format '[HH:MM:SS]' (hours, minutes, seconds), followed by a description, and the text that you want to be spoken.
+
+```txt
+  [timestamp]
+  (description)
+
+  "text"
+```
 
 Here's an example of how the text file should look:
 
