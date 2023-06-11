@@ -22,6 +22,12 @@ load_dotenv()
 def str_lower(s):
     return s.lower()
 
+AUDIO_ENCODING_MAP = {
+    'mp3': 'MP3',
+    'wav': 'LINEAR16',
+    'ogg': 'OGG_OPUS'
+}
+
 # variable to store the "all" choice
 replace_all = None
 
@@ -183,7 +189,10 @@ def process_output(output, input_file, line_number, voice_name):
             print(f"Audio content written to file {file_path}")
     return file_path
 
-def synthesize_speech(text, language_code, voice_name, convert=False, file_path=None):
+def synthesize_speech(text, language_code, voice_name, audio_format, convert=False, file_path=None):
+    audio_format = AUDIO_ENCODING_MAP.get(audio_format.lower())
+    if audio_format is None:
+        raise ValueError(f"Unsupported audio format: {audio_format}")
     if convert:
         ssml_text = text_to_ssml(text)
         if ssml_text == "<speak></speak>":  # skip empty content
@@ -194,12 +203,13 @@ def synthesize_speech(text, language_code, voice_name, convert=False, file_path=
         input_text = texttospeech.SynthesisInput(ssml=ssml_text)
     else:
         input_text = texttospeech.SynthesisInput(text=text)
+
     voice_params = texttospeech.VoiceSelectionParams(
         language_code=language_code,
         name=voice_name
     )
     audio_config = texttospeech.AudioConfig(
-        audio_encoding=getattr(texttospeech.AudioEncoding, args.format.upper())
+        audio_encoding=getattr(texttospeech.AudioEncoding, audio_format)  # Use the correct AudioEncoding attribute
     )
     response = client.synthesize_speech(input=input_text, voice=voice_params, audio_config=audio_config)
     return response
@@ -216,7 +226,7 @@ def create_audio_files(input_files):
         print(f"Processing file: {file}")
         for i, (timestamp, line) in enumerate(input_text):
             print(f"Processing line {i+1} of {len(input_text)}")
-            response = synthesize_speech(line, language_code, voice_name, args.convert)
+            response = synthesize_speech(line, language_code, voice_name, args.format)  # pass args.format instead of args.convert
             file_path = process_output(response, file, i+1, voice_name)  # pass voice_name as an argument
             output_dir = os.path.dirname(file_path)
             if args.convert and file_path:
