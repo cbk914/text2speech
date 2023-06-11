@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from functools import partial
 from typing import List
-
+import re
 import pathlib
 from dotenv import load_dotenv, set_key
 from google.cloud import texttospeech
@@ -23,7 +23,7 @@ replace_all = None
 parser = argparse.ArgumentParser(description='Convert text files to speech.')
 parser.add_argument('-l', '--language', type=str, help='The language code.')
 parser.add_argument('-v', '--voice', type=str, help='The name or number of the voice.')
-parser.add_argument('-f', '--format', type=str_lower, choices=['mp3', 'wav', 'ogg'], help='The audio output format.')
+parser.add_argument('-f', '--format', type=str_lower, choices=['mp3', 'wav', 'ogg'], default='mp3', help='The audio output format.')
 parser.add_argument('-p', '--path', type=str, default='./', help='The path to the input file (use wildcard * for multiple files).')
 parser.add_argument('-s', '--save', type=str, help='Save current settings to a profile.')
 parser.add_argument('-r', '--load', type=str, help='Load settings from a profile.')
@@ -67,14 +67,19 @@ iso_to_bcp = {
 }
 
 def prompt_for_file():
-    user_input = input("Please enter a file path or 'q' to quit: ")
-    if user_input.lower() == 'q':
-        exit(0)
-    elif os.path.isfile(user_input):
-        return [user_input]
-    else:
-        print(f"No file found for the path: {user_input}")
-        return prompt_for_file()
+    while True:
+        try:
+            user_input = input("Please enter a file path or 'q' to quit: ")
+        except UnicodeDecodeError:
+            print("Invalid input. Please try again.")
+            continue
+
+        if user_input.lower() == 'q':
+            exit(0)
+        elif os.path.isfile(user_input):
+            return [user_input]
+        else:
+            print(f"No file found for the path: {user_input}")
 
 def list_voices() -> None:
     response = client.list_voices()
@@ -82,10 +87,11 @@ def list_voices() -> None:
         print(voice)
 
 def get_voices(language_code):
-    response = client.list_voices(language_code)
+    request = texttospeech.ListVoicesRequest(language_code=language_code)
+    response = client.list_voices(request)
     return response.voices
 
-def get_voice_choice(voice):
+def get_voice_choice(language_code):
     for i, v in enumerate(get_voices(language_code), 1):
         print(f"{i}. {v.name}")
         print(f"\tLanguage: {v.language_codes[0]}")
@@ -98,6 +104,8 @@ def get_voice_choice(voice):
             return get_voices(language_code)[int(user_input)-1].name
 
 def get_language_code(text):
+    if not text.strip():  # checking if the text is not empty
+        return 'en-US'  # returning a default value when text is empty
     iso_code = detect(text)
     bcp_code = iso_to_bcp.get(iso_code, 'en-US')  # default to English if not found
     return bcp_code
@@ -105,21 +113,32 @@ def get_language_code(text):
 def str_lower(s):
     return s.lower()
 
-def process_file_input(file_path):
-    file = open(file_path, 'r')
-    file_output = []
-    for line in file.readlines():
-        if len(line.strip()) > 0:
-            file_output.append(line.strip())
-    file.close()
-    return file_output
+def process_timestamped_lines(lines):
+    pattern = r'\[(\d{2}:\d{2}:\d{2})\]\n\((.*?)\)\n\n"(.*?)"'
+    timestamped_lines = []
+    # Join lines into a single string
+    text = ''.join(lines)
+    matches = re.findall(pattern, text, re.DOTALL)
+    if matches:
+        for timestamp, transition, line_text in matches:
+            timestamped_lines.append((timestamp, line_text))
+    return timestamped_lines
 
-def process_output(output, input_file):
+def process_file_input(file_path):
+    with open(file_path, 'r') as file:
+        file_content = file.read()
+    return process_timestamped_lines(file_content)
+
+def process_output(output, input_file, line_number):
     date = datetime.today().strftime('%Y-%m-%d')
-    file_name = os.path.splitext(os.path.basename(input_file))[0] + "_" + date + "." + args.format
-    with open(file_name, 'wb') as out:
+    file_name_without_ext = os.path.splitext(os.path.basename(input_file))[0]
+    dir_name = file_name_without_ext  # directory name is same as input file name
+    pathlib.Path(dir_name).mkdir(parents=True, exist_ok=True)  # create directory if it doesn't exist
+    file_name = file_name_without_ext + "_" + date + "_line_" + str(line_number) + "." + args.format
+    file_path = os.path.join(dir_name, file_name)  # join the directory name with file name
+    with open(file_path, 'wb') as out:
         out.write(output.audio_content)
-    print(f"Audio content written to file {file_name}")
+    print(f"Audio content written to file {file_path}")
 
 def synthesize_speech(text, language_code, voice_name):
     input_text = texttospeech.SynthesisInput(text=text)
@@ -136,13 +155,17 @@ def synthesize_speech(text, language_code, voice_name):
 def create_audio_files(input_files):
     for file in input_files:
         input_text = process_file_input(file)
-        language_code = get_language_code(' '.join(input_text[:10]))
+        if not input_text:  # checking if input_text is not empty
+            print(f"No valid lines found in file: {file}")
+            continue
+        text_to_detect = ' '.join(line[1] for line in input_text[:10] if line[1].strip())  # skipping empty lines
+        language_code = get_language_code(text_to_detect)
         voice_name = get_voice_choice(language_code) if args.voice is None else args.voice
         print(f"Processing file: {file}")
-        for i, line in enumerate(input_text):
+        for i, (timestamp, line) in enumerate(input_text):
             print(f"Processing line {i+1} of {len(input_text)}")
             response = synthesize_speech(line, language_code, voice_name)
-            process_output(response, file)
+            process_output(response, file, i+1)
 
 if __name__ == "__main__":
     input_files = glob.glob(args.path) if '*' in args.path else [args.path]
