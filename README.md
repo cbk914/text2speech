@@ -41,14 +41,6 @@ Replace "/path/to/your/keyfile.json" with the actual path to your JSON key file.
 
 Remember, the service account key file acts as a password for your application to authenticate itself to Google Cloud, so treat it with the same level of care as you would any sensitive data.
 
-# Note on the Punkt
-
-The Punkt Sentence Tokenizer is a unsupervised machine learning algorithm that is used for sentence boundary detection. It divides a text into a list of sentence tokens. The algorithm is designed to learn what constitutes a sentence break from a corpus of text that it's trained on.
-
-In this script, the Punkt Sentence Tokenizer is used in the split_text_into_chunks function to divide the input text into sentences. This is done so that each sentence can be processed individually when synthesizing the speech. This is especially useful when the text is too large to be processed all at once, as it allows the text to speech synthesis to be done in manageable chunks.
-
-It's important to note that Punkt is language-dependent, which means it needs to be trained on text in the target language to work properly. The NLTK library provides pre-trained Punkt models for a number of languages, which can be loaded using the nltk.download('punkt') command, as the script does.
-
 # Usage
 
 To use the program, navigate to the directory containing text2speech.py and run:
