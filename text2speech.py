@@ -27,6 +27,7 @@ parser.add_argument('-f', '--format', type=str_lower, choices=['mp3', 'wav', 'og
 parser.add_argument('-p', '--path', type=str, default='./', help='The path to the input file (use wildcard * for multiple files).')
 parser.add_argument('-s', '--save', type=str, help='Save current settings to a profile.')
 parser.add_argument('-r', '--load', type=str, help='Load settings from a profile.')
+parser.add_argument('-c', '--convert', action='store_true', help='Convert text to SSML.')
 args = parser.parse_args()
 
 config = {}
@@ -129,19 +130,25 @@ def process_file_input(file_path):
         file_content = file.read()
     return process_timestamped_lines(file_content)
 
-def process_output(output, input_file, line_number):
+def process_output(output, input_file, line_number, voice_name):
     date = datetime.today().strftime('%Y-%m-%d')
     file_name_without_ext = os.path.splitext(os.path.basename(input_file))[0]
     dir_name = file_name_without_ext  # directory name is same as input file name
     pathlib.Path(dir_name).mkdir(parents=True, exist_ok=True)  # create directory if it doesn't exist
-    file_name = file_name_without_ext + "_" + date + "_line_" + str(line_number) + "." + args.format
+    
+    # Modify the file_name to include the voice_name
+    file_name = file_name_without_ext + "_" + date + "_line_" + str(line_number) + "_" + voice_name.replace(" ","_") + "." + args.format
     file_path = os.path.join(dir_name, file_name)  # join the directory name with file name
+
     with open(file_path, 'wb') as out:
         out.write(output.audio_content)
     print(f"Audio content written to file {file_path}")
 
-def synthesize_speech(text, language_code, voice_name):
-    input_text = texttospeech.SynthesisInput(text=text)
+def synthesize_speech(text, language_code, voice_name, convert=False):
+    if convert:
+        input_text = texttospeech.SynthesisInput(ssml=text_to_ssml(text))
+    else:
+        input_text = texttospeech.SynthesisInput(text=text)
     voice_params = texttospeech.VoiceSelectionParams(
         language_code=language_code,
         name=voice_name
@@ -164,8 +171,37 @@ def create_audio_files(input_files):
         print(f"Processing file: {file}")
         for i, (timestamp, line) in enumerate(input_text):
             print(f"Processing line {i+1} of {len(input_text)}")
-            response = synthesize_speech(line, language_code, voice_name)
-            process_output(response, file, i+1)
+            response = synthesize_speech(line, language_code, voice_name, args.convert)
+            process_output(response, file, i+1, voice_name)  # pass voice_name as an argument
+
+def text_to_ssml(input_text):
+    # Regular expression pattern
+    pattern = r'\[(\d{2}:\d{2}:\d{2})\]\n\((.*?)\)\n\n"(.*?)"'
+    
+    # Match the pattern in the input_text
+    matches = re.findall(pattern, input_text, re.DOTALL)
+    
+    ssml_lines = []
+
+    for timestamp, transition, line_text in matches:
+        # Wrap the timestamp in a <mark> tag
+        mark = f"<mark name='{timestamp}'/>"
+        
+        # Wrap the transition in a <break> tag
+        break_tag = f"<break strength='medium' time='{transition}'/>"
+        
+        # Add the line of dialogue
+        line = f"<prosody rate='medium' pitch='medium'>{line_text}</prosody>"
+        
+        # Combine the mark, break, and line into a single SSML string
+        ssml_line = mark + break_tag + line
+        
+        ssml_lines.append(ssml_line)
+    
+    # Combine all SSML lines into a single string, wrapped in <speak> tags
+    ssml = "<speak>" + " ".join(ssml_lines) + "</speak>"
+    
+    return ssml
 
 if __name__ == "__main__":
     input_files = glob.glob(args.path) if '*' in args.path else [args.path]
