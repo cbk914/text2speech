@@ -51,20 +51,25 @@ It's important to note that Punkt is language-dependent, which means it needs to
 
 # Usage
 
-Now, to use the program, navigate to the directory containing text2speech.py and run:
+To use the program, navigate to the directory containing text2speech.py and run:
 
-  `python text2speech.py`
+`python text2speech.py -i INPUTFILE [-o OUTPUTDIR] [-f FORMAT] [-v VOICE] [--convert]`
 
-The `text2speech.py` script is an interactive program that synthesizes speech from text using Google's Text-to-Speech API. When run, it will prompt you with several questions to determine the settings for the synthesized speech. These settings include:
+where:
 
--  **Language Code** : This is the language of the text you want to convert. You'll need to input this as a BCP-47 language tag (e.g., 'en-US' for American English, 'fr-FR' for French).
+INPUTFILE is the path to the text file that you want to convert to speech.
 
+OUTPUTDIR is the optional argument specifying the directory where the audio files should be saved. If not provided, files will be saved in the same directory as text2speech.py.
 
--  **SSML Gender** : This represents the gender of the voice used for the speech synthesis. You can choose from 'NEUTRAL', 'MALE', or 'FEMALE'.
+FORMAT is the optional argument specifying the format of the output audio files. It can be 'LINEAR16' (WAV), 'MP3', or 'OGG_OPUS'. If not provided, 'MP3' will be used.
 
+VOICE is the optional argument specifying the voice to be used for the speech synthesis. It should be a valid voice name from Google's Text-to-Speech API. If not provided, the default voice for the detected language will be used.
 
+--convert is an optional flag. If provided, the script will also convert the input text to Speech Synthesis Markup Language (SSML) and save it in a .ssml file in the same directory as the audio files.
 
-After setting these configurations, the program will ask you to provide the path to a text file. This text file should contain the text you wish to convert into speech, structured in a specific way. The file should have time tags, represented in the format '[HH:MM:SS]' (hours, minutes, seconds), followed by a description, and the text that you want to be spoken.
+The text2speech.py script is an interactive program that synthesizes speech from text using Google's Text-to-Speech API.
+
+The text file should contain the text you wish to convert into speech, structured in a specific way. The file should have time tags, represented in the format '[HH:MM:SS]' (hours, minutes, seconds), followed by a description, and the text that you want to be spoken.
 
 ```txt
   [timestamp]
@@ -89,9 +94,9 @@ Here's an example of how the text file should look:
 ```
 The script will process this file, splitting the text into segments based on these time tags. Each segment of text (found between the quotation marks) will be converted into a separate audio file.
 
-So, in the provided example, two .mp3 files would be generated - one for each time tag and the corresponding text. The files will be named in a way that corresponds to the order of the segments and their respective time tags, like `audio_1_00:01:00.mp3` and `audio_2_00:02:30.mp3` .
+So, in the provided example, two .mp3 files would be generated - one for each time tag and the corresponding text. The files will be named in a way that corresponds to the order of the segments and their respective time tags, like audio_1_00:01:00.mp3 and audio_2_00:02:30.mp3.
 
-These audio files can then be found in the same directory as your `text2speech.py` script.
+These audio files will be stored in the specified output directory, or if none is provided, in the same directory as your text2speech.py script.
 
 # Note on voices
 
