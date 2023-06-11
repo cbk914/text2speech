@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Author: cbk914
 import argparse
 import json
 import os
@@ -11,6 +14,8 @@ from google.cloud import texttospeech
 from termcolor import colored
 import glob
 from langdetect import detect
+import uuid
+from google.api_core.exceptions import OutOfRange, RetryError, TooManyRequests
 
 load_dotenv()
 
@@ -42,10 +47,14 @@ if args.load:
 # Prompt the user for Google credentials if not found
 def get_credentials():
     while True:
-        path = input(colored("Please enter the path to your Google Cloud credentials file: ", "blue"))
-        if os.path.isfile(path):
-            return path
-        print(colored("Invalid file path. Please try again.", "red"))
+        try:
+            path = input(colored("Please enter the path to your Google Cloud credentials file: ", "blue"))
+            if os.path.isfile(path):
+                return path
+            print(colored("Invalid file path. Please try again.", "red"))
+        except Exception as e:
+            print(f"Error while getting credentials: {e}")
+            continue
 
 # Load Google credentials
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or get_credentials()
@@ -83,14 +92,20 @@ def prompt_for_file():
             print(f"No file found for the path: {user_input}")
 
 def list_voices() -> None:
-    response = client.list_voices()
-    for voice in response.voices:
-        print(voice)
+    try:
+        response = client.list_voices()
+        for voice in response.voices:
+            print(voice)
+    except Exception as e:
+        print(f"Error while listing voices: {e}")
 
 def get_voices(language_code):
-    request = texttospeech.ListVoicesRequest(language_code=language_code)
-    response = client.list_voices(request)
-    return response.voices
+    try:
+        request = texttospeech.ListVoicesRequest(language_code=language_code)
+        response = client.list_voices(request)
+        return response.voices
+    except Exception as e:
+        print(f"Error while getting voices: {e}")
 
 def get_voice_choice(language_code):
     for i, v in enumerate(get_voices(language_code), 1):
@@ -105,48 +120,78 @@ def get_voice_choice(language_code):
             return get_voices(language_code)[int(user_input)-1].name
 
 def get_language_code(text):
-    if not text.strip():  # checking if the text is not empty
-        return 'en-US'  # returning a default value when text is empty
-    iso_code = detect(text)
-    bcp_code = iso_to_bcp.get(iso_code, 'en-US')  # default to English if not found
-    return bcp_code
+    try:
+        if not text.strip():  # checking if the text is not empty
+            return 'en-US'  # returning a default value when text is empty
+        iso_code = detect(text)
+        bcp_code = iso_to_bcp.get(iso_code, 'en-US')  # default to English if not found
+        return bcp_code
+    except Exception as e:
+        print(f"Error while getting language code: {e}")
 
 def str_lower(s):
     return s.lower()
 
 def process_timestamped_lines(lines):
-    pattern = r'\[(\d{2}:\d{2}:\d{2})\]\n\((.*?)\)\n\n"(.*?)"'
-    timestamped_lines = []
-    # Join lines into a single string
-    text = ''.join(lines)
-    matches = re.findall(pattern, text, re.DOTALL)
-    if matches:
-        for timestamp, transition, line_text in matches:
-            timestamped_lines.append((timestamp, line_text))
-    return timestamped_lines
+    try:
+        pattern = r'\[(\d{2}:\d{2}:\d{2})\]\n\((.*?)\)\n\n"(.*?)"'
+        timestamped_lines = []
+        text = ''.join(lines)
+        matches = re.findall(pattern, text, re.DOTALL)
+        if matches:
+            for timestamp, transition, line_text in matches:
+                timestamped_lines.append((timestamp, line_text))
+        return timestamped_lines
+    except Exception as e:
+        print(f"Error while processing timestamped lines: {e}")
 
 def process_file_input(file_path):
-    with open(file_path, 'r') as file:
-        file_content = file.read()
-    return process_timestamped_lines(file_content)
+    try:
+        with open(file_path, 'r') as file:
+            file_content = file.read()
+        return process_timestamped_lines(file_content)
+    except Exception as e:
+        print(f"Error while processing file input: {e}")
 
 def process_output(output, input_file, line_number, voice_name):
     date = datetime.today().strftime('%Y-%m-%d')
     file_name_without_ext = os.path.splitext(os.path.basename(input_file))[0]
     dir_name = file_name_without_ext  # directory name is same as input file name
     pathlib.Path(dir_name).mkdir(parents=True, exist_ok=True)  # create directory if it doesn't exist
-    
+
     # Modify the file_name to include the voice_name
     file_name = file_name_without_ext + "_" + date + "_line_" + str(line_number) + "_" + voice_name.replace(" ","_") + "." + args.format
     file_path = os.path.join(dir_name, file_name)  # join the directory name with file name
 
-    with open(file_path, 'wb') as out:
-        out.write(output.audio_content)
-    print(f"Audio content written to file {file_path}")
+    # Save SSML content
+    if args.convert and output and output.ssml_content:
+        ssml_filename = os.path.splitext(file_path)[0] + ".ssml"
+        with open(ssml_filename, 'w') as f:
+            f.write(output.ssml_content)
+        print(f"SSML content written to file {ssml_filename}")
 
-def synthesize_speech(text, language_code, voice_name, convert=False):
+    # Add check to prevent overwriting and writing of empty files
+    if not output or not output.audio_content:  # check if output is None or output.audio_content is empty
+        print(f"No audio content received from Text-to-Speech API for file {file_path}")
+        return file_path
+    elif os.path.exists(file_path):
+        print(f"File {file_path} already exists, skipping...")
+        return file_path
+    else:
+        with open(file_path, 'wb') as out:
+            out.write(output.audio_content)
+            print(f"Audio content written to file {file_path}")
+    return file_path
+
+def synthesize_speech(text, language_code, voice_name, convert=False, file_path=None):
     if convert:
-        input_text = texttospeech.SynthesisInput(ssml=text_to_ssml(text))
+        ssml_text = text_to_ssml(text)
+        if ssml_text == "<speak></speak>":  # skip empty content
+            return texttospeech.SynthesizeSpeechResponse()  # return empty response
+        ssml_file_path = file_path.replace(args.format, "ssml")  # replace audio file extension with ssml
+        with open(ssml_file_path, 'w') as ssml_file:
+            ssml_file.write(ssml_text)
+        input_text = texttospeech.SynthesisInput(ssml=ssml_text)
     else:
         input_text = texttospeech.SynthesisInput(text=text)
     voice_params = texttospeech.VoiceSelectionParams(
@@ -172,42 +217,56 @@ def create_audio_files(input_files):
         for i, (timestamp, line) in enumerate(input_text):
             print(f"Processing line {i+1} of {len(input_text)}")
             response = synthesize_speech(line, language_code, voice_name, args.convert)
-            process_output(response, file, i+1, voice_name)  # pass voice_name as an argument
+            file_path = process_output(response, file, i+1, voice_name)  # pass voice_name as an argument
+            output_dir = os.path.dirname(file_path)
+            if args.convert and file_path:
+                synthesize_speech(line, language_code, voice_name, args.convert, file_path)
+                text_to_ssml(line, output_dir)  # convert the line to ssml and save the ssml in the output directory
 
-def text_to_ssml(input_text):
-    # Regular expression pattern
-    pattern = r'\[(\d{2}:\d{2}:\d{2})\]\n\((.*?)\)\n\n"(.*?)"'
-    
-    # Match the pattern in the input_text
-    matches = re.findall(pattern, input_text, re.DOTALL)
-    
-    ssml_lines = []
-
-    for timestamp, transition, line_text in matches:
-        # Wrap the timestamp in a <mark> tag
-        mark = f"<mark name='{timestamp}'/>"
-        
-        # Wrap the transition in a <break> tag
-        break_tag = f"<break strength='medium' time='{transition}'/>"
-        
-        # Add the line of dialogue
-        line = f"<prosody rate='medium' pitch='medium'>{line_text}</prosody>"
-        
-        # Combine the mark, break, and line into a single SSML string
-        ssml_line = mark + break_tag + line
-        
-        ssml_lines.append(ssml_line)
-    
-    # Combine all SSML lines into a single string, wrapped in <speak> tags
-    ssml = "<speak>" + " ".join(ssml_lines) + "</speak>"
-    
-    return ssml
+def text_to_ssml(input_text, output_dir=None):
+    try:
+        pattern = r'\[(\d{2}:\d{2}:\d{2})\]\n\((.*?)\)\n\n"(.*?)"'
+        matches = re.findall(pattern, input_text, re.DOTALL)
+        ssml_lines = []
+        for timestamp, transition, line_text in matches:
+            mark = f"<mark name='{timestamp}'/>"
+            break_tag = f"<break strength='medium' time='{transition}'/>"
+            line = f"<prosody rate='medium' pitch='medium'>{line_text}</prosody>"
+            ssml_line = mark + break_tag + line
+            ssml_lines.append(ssml_line)
+        ssml = "<speak>" + " ".join(ssml_lines) + "</speak>"
+        if output_dir:  # If an output_dir was provided, save the SSML there
+            ssml_file_path = os.path.join(output_dir, "output.ssml")
+            with open(ssml_file_path, 'w') as f:
+                f.write(ssml)
+            print(f"SSML content written to file {ssml_file_path}")
+        return ssml
+    except Exception as e:
+        print(f"Error while converting text to SSML: {e}")
 
 if __name__ == "__main__":
     input_files = glob.glob(args.path) if '*' in args.path else [args.path]
     if len(input_files) == 0 or not all(map(os.path.isfile, input_files)):
-        input_files = prompt_for_file()
-    create_audio_files(input_files)
+        if args.convert:  # If no files, but -c option was given
+            text = input("Enter your text: ")  # Ask user to input the text
+            ssml = text_to_ssml(text)  # Convert text to SSML
+            with open("output.ssml", 'w') as f:  # Save SSML to output.ssml file
+                f.write(ssml)
+            print("SSML content written to file output.ssml")
+        else:
+            input_files = prompt_for_file()
+    else:
+        if args.convert:
+            for file in input_files:
+                with open(file, 'r') as f:
+                    text = f.read()
+                ssml = text_to_ssml(text)
+                ssml_filename = os.path.splitext(file)[0] + ".ssml"
+                with open(ssml_filename, 'w') as f:
+                    f.write(ssml)
+                print(f"SSML content written to file {ssml_filename}")
+        else:
+            create_audio_files(input_files)
 
     if args.save:
         config = {
