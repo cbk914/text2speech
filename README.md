@@ -65,7 +65,7 @@ FORMAT is the optional argument specifying the format of the output audio files.
 
 VOICE is the optional argument specifying the voice to be used for the speech synthesis. It should be a valid voice name from Google's Text-to-Speech API. If not provided, the default voice for the detected language will be used.
 
---convert is an optional flag. If provided, the script will also convert the input text to Speech Synthesis Markup Language (SSML) and save it in a .ssml file in the same directory as the audio files.
+--convert is an optional flag. If provided, the script will also convert the input text to Speech Synthesis Markup Language (SSML) and save it in a .ssml file in the same directory.
 
 The text2speech.py script is an interactive program that synthesizes speech from text using Google's Text-to-Speech API.
 
